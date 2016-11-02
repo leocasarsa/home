@@ -60,9 +60,6 @@
            (package-install package)
          package)))
    packages))
-;; Make sure to have downloaded archive description.
-(or (file-exists-p package-user-dir)
-    (package-refresh-contents))
 
 ;; Packages
 (require 'package) ;; You might already have this line
@@ -72,6 +69,11 @@
 (when (< emacs-major-version 24)
   ;; For important compatibility libraries like cl-lib
   (add-to-list 'package-archives '("gnu" . "http://elpa.gnu.org/packages/")))
+
+;; Make sure to have downloaded archive description.
+(or (file-exists-p package-user-dir)
+    (package-refresh-contents))
+
 (setq package-enable-at-startup nil)
 (package-initialize)
 
