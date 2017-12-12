@@ -17,7 +17,8 @@
     helm
     iedit
     material-theme
-    better-defaults))
+    better-defaults
+    sql-indent))
 
 (mapc #'(lambda (package)
     (unless (package-installed-p package)
@@ -28,7 +29,7 @@
 ;; --------------------------------------
 
 (setq inhibit-startup-message t) ;; hide the startup message
-(load-theme 'material t) ;; load material theme
+(load-theme 'spolsky t) ;; load material theme
 (global-linum-mode t) ;; enable line numbers globally
 
 ;; My key settings
@@ -45,6 +46,15 @@
 
 ;; ido-mode
 (ido-mode 1)
+
+;; fci-mode
+(define-globalized-minor-mode global-fci-mode fci-mode
+  (lambda ()
+    (if (and
+         (not (string-match "^\*.*\*$" (buffer-name)))
+         (not (eq major-mode 'dired-mode)))
+        (fci-mode 1))))
+(global-fci-mode 1)
 
 ;; helm
 (require 'helm-config)
@@ -134,14 +144,9 @@
   ; was dired-up-directory
  ))
 
-
-;; NEW PACKAGES
+;; REFACTORING
 ;; --------------------------------------
 
-(require 'default-text-scale)
-(default-text-scale-mode 1)
-
-;;;; Language-general refactorization
 ;; iedit-mode
 (require 'iedit)
 
@@ -165,7 +170,18 @@
 (global-set-key (kbd "C->") 'mc/mark-next-like-this)
 (global-set-key (kbd "C-<") 'mc/mark-previous-like-this)
 (global-set-key (kbd "C-c C-<") 'mc/mark-all-like-this)
-;; init.el ends here
+
+;; MINOR MODES
+;; --------------------------------------
+
+(require 'default-text-scale)
+(default-text-scale-mode 1)
+
+;; iedit-mode
+(require 'iedit)
+
+;; sql-indent
+(require 'sql-indent)
 
 ;; MAJOR MODES
 ;; --------------------------------------
@@ -181,6 +197,10 @@
 (when (require 'flycheck nil t)
   (setq elpy-modules (delq 'elpy-module-flymake elpy-modules))
   (add-hook 'elpy-mode-hook 'flycheck-mode))
+
+
+;; EMACS AUTOMATIC CUSTOMIZATION
+;; --------------------------------------
 (put 'downcase-region 'disabled nil)
 (put 'narrow-to-region 'disabled nil)
 (custom-set-variables
@@ -194,10 +214,13 @@
    ["#212526" "#ff4b4b" "#b4fa70" "#fce94f" "#729fcf" "#e090d7" "#8cc4ff" "#eeeeec"])
  '(custom-safe-themes
    (quote
-    ("b3775ba758e7d31f3bb849e7c9e48ff60929a792961a2d536edec8f68c671ca5" "9b59e147dbbde5e638ea1cde5ec0a358d5f269d27bd2b893a0947c4a867e14c1" "96998f6f11ef9f551b427b8853d947a7857ea5a578c75aa9c4e7c73fe04d10b4" "0c29db826418061b40564e3351194a3d4a125d182c6ee5178c237a7364f0ff12" "e0d42a58c84161a0744ceab595370cbe290949968ab62273aed6212df0ea94b4" "3cd28471e80be3bd2657ca3f03fbb2884ab669662271794360866ab60b6cb6e6" "72a81c54c97b9e5efcc3ea214382615649ebb539cb4f2fe3a46cd12af72c7607" "732b807b0543855541743429c9979ebfb363e27ec91e82f463c91e68c772f6e3" default)))
+    ("fbdc07294d1135a36ceb9df015494da2cebb2b790e42b402ca9c4c425f916452" "987b709680284a5858d5fe7e4e428463a20dfabe0a6f2a6146b3b8c7c529f08b" "3d5ef3d7ed58c9ad321f05360ad8a6b24585b9c49abcee67bdcbb0fe583a6950" "58c6711a3b568437bab07a30385d34aacf64156cc5137ea20e799984f4227265" "a24c5b3c12d147da6cef80938dca1223b7c7f70f2f382b26308eba014dc4833a" "b3775ba758e7d31f3bb849e7c9e48ff60929a792961a2d536edec8f68c671ca5" "9b59e147dbbde5e638ea1cde5ec0a358d5f269d27bd2b893a0947c4a867e14c1" "96998f6f11ef9f551b427b8853d947a7857ea5a578c75aa9c4e7c73fe04d10b4" "0c29db826418061b40564e3351194a3d4a125d182c6ee5178c237a7364f0ff12" "e0d42a58c84161a0744ceab595370cbe290949968ab62273aed6212df0ea94b4" "3cd28471e80be3bd2657ca3f03fbb2884ab669662271794360866ab60b6cb6e6" "72a81c54c97b9e5efcc3ea214382615649ebb539cb4f2fe3a46cd12af72c7607" "732b807b0543855541743429c9979ebfb363e27ec91e82f463c91e68c772f6e3" default)))
  '(fci-rule-color "#ECEFF1")
  '(hl-sexp-background-color "#efebe9")
  '(linum-format " %5i ")
+ '(package-selected-packages
+   (quote
+    (sql-indent yaml-mode workgroups2 wgrep web-mode sublime-themes pomodoro multiple-cursors material-theme jedi-direx indent-guide iedit helm go-mode git flycheck fill-column-indicator elpy ein default-text-scale column-marker better-defaults auctex)))
  '(vc-annotate-background nil)
  '(vc-annotate-color-map
    (quote
