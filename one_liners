@@ -1,0 +1,1 @@
+git grep -lz timestamp | xargs -0 sed -i'' -e 's/timestamp/epoch/g'
