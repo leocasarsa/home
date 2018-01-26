@@ -117,3 +117,6 @@ ENV/
 
 # config files
 *config.py
+
+# pdf files
+*.pdf
