@@ -13,11 +13,19 @@
 (defvar myPackages
   '(default-text-scale
     elpy
+    multiple-cursors
+    protobuf-mode
     flycheck
+    markdown-mode
+    lua-mode
+    fill-column-indicator
     helm
     iedit
     material-theme
     better-defaults
+    org-journal
+    wgrep
+    pdf-tools
     sql-indent))
 
 (mapc #'(lambda (package)
@@ -29,7 +37,7 @@
 ;; --------------------------------------
 
 (setq inhibit-startup-message t) ;; hide the startup message
-(load-theme 'spolsky t) ;; load material theme
+(load-theme 'manoj-dark t) ;; load material theme
 (global-linum-mode t) ;; enable line numbers globally
 
 ;; My key settings
@@ -48,6 +56,7 @@
 (ido-mode 1)
 
 ;; fci-mode
+(require 'fill-column-indicator)
 (define-globalized-minor-mode global-fci-mode fci-mode
   (lambda ()
     (if (and
@@ -55,6 +64,9 @@
          (not (eq major-mode 'dired-mode)))
         (fci-mode 1))))
 (global-fci-mode 1)
+
+;; org-journal
+(require 'org-journal)
 
 ;; helm
 (require 'helm-config)
@@ -190,6 +202,9 @@
 (load "protobuf-mode")
 (add-to-list 'auto-mode-alist '("\\.proto\\'" . protobuf-mode))
 
+;; Markdown-mode
+(load "markdown-mode")
+
 ;; Python
 (elpy-enable)
 (elpy-use-ipython)
@@ -220,7 +235,7 @@
  '(linum-format " %5i ")
  '(package-selected-packages
    (quote
-    (sql-indent yaml-mode workgroups2 wgrep web-mode sublime-themes pomodoro multiple-cursors material-theme jedi-direx indent-guide iedit helm go-mode git flycheck fill-column-indicator elpy ein default-text-scale column-marker better-defaults auctex)))
+    (auto-complete typescript-mode lua-mode ## sql-indent yaml-mode workgroups2 wgrep web-mode sublime-themes pomodoro multiple-cursors material-theme jedi-direx indent-guide iedit helm go-mode git flycheck fill-column-indicator elpy ein default-text-scale column-marker better-defaults auctex)))
  '(vc-annotate-background nil)
  '(vc-annotate-color-map
    (quote
@@ -249,3 +264,4 @@
  ;; Your init file should contain only one such instance.
  ;; If there is more than one, they won't work right.
  )
+(put 'upcase-region 'disabled nil)
