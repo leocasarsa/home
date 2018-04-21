@@ -1,181 +1,96 @@
-;; init.el --- Emacs configuration
-
 ;; INSTALL PACKAGES
 ;; --------------------------------------
+; Manually load package instead of waiting until after init.el is loaded
+(package-initialize)
+; Disable loading package again after init.el
+(setq package-enable-at-startup nil)
 
+; Enable "package", for installing packages
+; Add some common package repositories
 (require 'package)
 (add-to-list 'package-archives '("melpa" . "http://melpa.org/packages/"))
+(add-to-list 'package-archives '("marmalade" . "http://marmalade-repo.org/packages/"))
+(add-to-list 'package-archives '("gnu" . "http://elpa.gnu.org/packages/"))
+(add-to-list 'package-archives '("elpy" . "https://jorgenschaefer.github.io/packages/"))
 
-(package-initialize)
-(when (not package-archive-contents)
-  (package-refresh-contents))
+; Use "package" to install "use-package", a better package management and config system
+(unless (package-installed-p 'use-package)
+  (package-refresh-contents)
+  (package-install 'use-package))
 
-(defvar myPackages
-  '(default-text-scale
-    elpy
-    multiple-cursors
-    protobuf-mode
-    flycheck
-    markdown-mode
-    lua-mode
-    fill-column-indicator
-    helm
-    iedit
-    material-theme
-    better-defaults
-    org-journal
-    wgrep
-    pdf-tools
-    sql-indent))
+(eval-when-compile
+  (require 'use-package))
 
-(mapc #'(lambda (package)
-    (unless (package-installed-p package)
-      (package-install package)))
-      myPackages)
+; Make OS shell path available in emacs exec path
+(use-package exec-path-from-shell
+  :ensure t
+  :config (exec-path-from-shell-copy-env "PATH"))
 
-;; BASIC CUSTOMIZATION
+;; VISUAL CUSTOMIZATION
 ;; --------------------------------------
-
 (setq inhibit-startup-message t) ;; hide the startup message
 (load-theme 'manoj-dark t) ;; load material theme
 (global-linum-mode t) ;; enable line numbers globally
-
-;; My key settings
-(global-set-key (kbd "C-S-<iso-lefttab>") 'other-window)
-(global-set-key (kbd "C-|") 'other-frame)
-(setq inhibit-startup-screen t)
-
-;; Unbind Pesky Sleep Button
-(global-unset-key [(control z)])
-(global-unset-key [(control x)(control z)])
-
-;; Delete trailing whitespace before saving
-(add-hook 'before-save-hook 'delete-trailing-whitespace)
-
-;; ido-mode
-(ido-mode 1)
-
-;; fci-mode
-(require 'fill-column-indicator)
-(define-globalized-minor-mode global-fci-mode fci-mode
-  (lambda ()
-    (if (and
-         (not (string-match "^\*.*\*$" (buffer-name)))
-         (not (eq major-mode 'dired-mode)))
-        (fci-mode 1))))
-(global-fci-mode 1)
-
-;; org-journal
-(require 'org-journal)
-
-;; helm
-(require 'helm-config)
-
-;; comment lines
-(defun comment-or-uncomment-region-or-line ()
-    "Comments or uncomments the region or the current line if there's no active region."
-    (interactive)
-    (let (beg end)
-        (if (region-active-p)
-            (setq beg (region-beginning) end (region-end))
-            (setq beg (line-beginning-position) end (line-end-position)))
-        (comment-or-uncomment-region beg end)))
-(global-set-key (kbd "M-;") 'comment-or-uncomment-region-or-line)
 
 ;; Show full file name
 (setq frame-title-format
       (list (format "%s %%S: %%j " (system-name))
 	    '(buffer-file-name "%f" (dired-directory dired-directory "%b"))))
 
-;; Interactively move region
-(defun move-region (start end n)
-  "Move the current region up or down by N lines."
-  (interactive "r\np")
-  (let ((line-text (delete-and-extract-region start end)))
-    (forward-line n)
-    (let ((start (point)))
-      (insert line-text)
-      (setq deactivate-mark nil)
-      (set-mark start))))
+; Create a 80-character line marker
+; With a work-around so that fill-column-indicator works with company mode
+; https://emacs.stackexchange.com/questions/147/how-can-i-get-a-ruler-at-column-80
+(use-package fill-column-indicator
+  :ensure t
+  :config
+  (setq fci-rule-column 80)
+  (add-hook 'prog-mode-hook 'fci-mode))
 
-(defun move-region-up (start end n)
-  "Move the current line up by N lines."
-  (interactive "r\np")
-  (move-region start end (if (null n) -1 (- n))))
+;; Modeline similar to spacemacs
+(use-package spaceline
+  :ensure t
+  :config
+  (spaceline-emacs-theme))
 
-(defun move-region-down (start end n)
-  "Move the current line down by N lines."
-  (interactive "r\np")
-  (move-region start end (if (null n) 1 n)))
+;; Dims other buffers
+(use-package dimmer
+  :ensure t
+  :config
+  (dimmer-mode))
 
-(global-set-key (kbd "M-<up>") 'move-region-up)
-(global-set-key (kbd "M-<down>") 'move-region-down)
-
-;; No tabs
-(setq-default indent-tabs-mode nil)
-
-;; DIRED
-;; --------------------------------------
-
-;; Open file with dired
-(eval-after-load "dired"
-  '(progn
-     (define-key dired-mode-map "F" 'my-dired-find-file)
-     (defun my-dired-find-file (&optional arg)
-       "Open each of the marked files, or the file under the point, or when prefix arg, the next N files "
-       (interactive "P")
-       (let* ((fn-list (dired-get-marked-files nil arg)))
-         (mapc 'find-file fn-list)))))
-
-
-;;Create folder with find-file
-(defadvice find-file (before make-directory-maybe (filename &optional wildcards) activate)
-  "Create parent directory if not exists while visiting file."
-  (unless (file-exists-p filename)
-    (let ((dir (file-name-directory filename)))
-      (unless (file-exists-p dir)
-        (make-directory dir)))))
-
-;;Create folder with save-buffer
-(defadvice save-buffer (before make-directory-maybe (&optional wildcards) activate)
-  "Create parent directory if not exists while visiting file."
-  (unless (file-exists-p (buffer-file-name))
-    (let ((dir (file-name-directory (buffer-file-name))))
-      (unless (file-exists-p dir)
-        (make-directory dir)))))
-
-;; Group directories in dired
-(setq dired-listing-switches "-aBhl  --group-directories-first")
-
-;; dired reuse buffer
-(put 'dired-find-alternate-file 'disabled nil)
-(add-hook 'dired-mode-hook
- (lambda ()
-  (define-key dired-mode-map (kbd "^")
-    (lambda () (interactive) (find-alternate-file "..")))
-  ; was dired-up-directory
- ))
+(use-package doom-themes
+  :ensure t
+  :config
+  ;; Global settings (defaults)
+  (setq doom-themes-enable-bold t    ; if nil, bold is universally disabled
+        doom-themes-enable-italic t) ; if nil, italics is universally disabled
+  (load-theme 'doom-vibrant t)
+  ;; Enable flashing mode-line on errors
+  (doom-themes-visual-bell-config)
+  (doom-themes-neotree-config)  ; all-the-icons fonts must be installed!
+  ;; Corrects (and improves) org-mode's native fontification.
+  (doom-themes-org-config))
 
 ;; REFACTORING
 ;; --------------------------------------
 
 ;; iedit-mode
-(require 'iedit)
+(use-package iedit)
 
 ;;rgrep
 (define-key global-map "\C-x\C-r" 'rgrep)
 
 ;; wgrep
-(require 'wgrep)
+(use-package wgrep)
 (eval-after-load 'grepl
   '(define-key grep-mode-map
-    (kbd "C-x C-q") 'wgrep-change-to-wgrep-mode))
+     (kbd "C-x C-q") 'wgrep-change-to-wgrep-mode))
 (eval-after-load 'wgrep
   '(define-key grep-mode-map
-    (kbd "C-c C-c") 'wgrep-finish-edit))
+     (kbd "C-c C-c") 'wgrep-finish-edit))
 
 ;; multiple-cursors
-(require 'multiple-cursors)
+(use-package multiple-cursors)
 ;Adds cursor to each line in an active region
 (global-set-key (kbd "C-S-c C-S-c") 'mc/edit-lines)
 
@@ -183,85 +98,248 @@
 (global-set-key (kbd "C-<") 'mc/mark-previous-like-this)
 (global-set-key (kbd "C-c C-<") 'mc/mark-all-like-this)
 
-;; MINOR MODES
-;; --------------------------------------
-
-(require 'default-text-scale)
-(default-text-scale-mode 1)
-
-;; iedit-mode
-(require 'iedit)
-
-;; sql-indent
-(require 'sql-indent)
-
 ;; MAJOR MODES
 ;; --------------------------------------
-;; Protobuf-mode
-(add-to-list 'load-path "~/.emacs.d/lisp/")
-(load "protobuf-mode")
-(add-to-list 'auto-mode-alist '("\\.proto\\'" . protobuf-mode))
 
-;; Markdown-mode
-(load "markdown-mode")
+; Set up auctex for Latex in Emacs
+; Point auctex to my central .bib file
+(use-package tex
+  :ensure auctex
+  :config
+  (setq Tex-auto-save t)
+  (setq Tex-parse-self t)
+  (setq TeX-save-query nil)
+  (add-hook 'LaTeX-mode-hook 'turn-on-reftex)
+  (setq reftex-plug-into-AUCTeX t)
+  (setq reftex-default-bibliography '("/home/anh/texmf/bibtex/bib/local/library.bib")))
 
-;; Python
-(elpy-enable)
-(elpy-use-ipython)
-; Flycheck: better syntax checking
-(when (require 'flycheck nil t)
-  (setq elpy-modules (delq 'elpy-module-flymake elpy-modules))
-  (add-hook 'elpy-mode-hook 'flycheck-mode))
+; Set up elpy for Python in Emacs
+(use-package elpy
+  :ensure t
+  :pin elpy
+  :config
+  (elpy-enable)
+  ;; Enable elpy in a Python mode
+  (add-hook 'python-mode-hook 'elpy-mode)
+  (setq elpy-rpc-backend "jedi")
+  ;; Open the Python shell in a buffer after sending code to it
+  (add-hook 'inferior-python-mode-hook 'python-shell-switch-to-shell)
+  ;; Use IPython as the default shell, with a workaround to accommodate IPython 5
+  ;; https://emacs.stackexchange.com/questions/24453/weird-shell-output-when-using-ipython-5  (setq python-shell-interpreter "ipython")
+  (setq python-shell-interpreter-args "--simple-prompt -i")
+  ;; Enable pyvenv, which manages Python virtual environments
+  (pyvenv-mode 1)
+  ;; Tell Python debugger (pdb) to use the current virtual environment
+  ;; https://emacs.stackexchange.com/questions/17808/enable-python-pdb-on-emacs-with-virtualenv
+  (setq gud-pdb-command-name "python -m pdb "))
 
+; Set up projectile, i.e. package management + helm, i.e. autocomplete
+; Tutorial - recommended: https://tuhdo.github.io/helm-projectile.html
+;; (use-package projectile
+;;   :ensure t
+;;   :config
+;;   (projectile-global-mode)
+;;   (setq projectile-completion-system 'helm)
+;;   (setq projectile-switch-project-action 'helm-projectile))
+
+;; (use-package helm-projectile
+;;   :ensure t
+;;   :config
+;;   (helm-projectile-on))
+
+;; (use-package helm-config
+;;   :ensure helm
+;;   :config
+;;   (helm-mode 1)
+;;   (global-set-key (kbd "M-x") 'helm-M-x)
+;;   (global-set-key (kbd "C-x C-f") 'helm-find-files))
+
+; Set up company, i.e. code autocomplete
+(use-package company
+  :ensure t
+  :config
+  ;; Enable company mode everywhere
+  (add-hook 'after-init-hook 'global-company-mode)
+  ;; Set up TAB to manually trigger autocomplete menu
+  (define-key company-mode-map (kbd "<backtab>") 'company-complete)
+  (define-key company-active-map (kbd "<backtab>") 'company-complete-common)
+  ;; Set up M-h to see the documentation for items on the autocomplete menu
+  (define-key company-active-map (kbd "M-h") 'company-show-doc-buffer))
+
+; Set up company-jedi, i.e. tell elpy to use company autocomplete backend
+(use-package company-jedi
+  :ensure t
+  :config
+  (defun my/python-mode-hook ()
+    (add-to-list 'company-backends 'company-jedi))
+  (add-hook 'python-mode-hook 'my/python-mode-hook))
+
+;; ; Set up ESS, i.e. Statistics in Emacs, R, Stata, etc.
+;; (use-package ess-site
+;;   :ensure ess
+;;   :config
+;;   (ess-toggle-underscore nil) ; http://stackoverflow.com/questions/2531372/how-to-stop-emacs-from-replacing-underbar-with-in-ess-mode
+;;   (setq ess-fancy-comments nil) ; http://stackoverflow.com/questions/780796/emacs-ess-mode-tabbing-for-comment-region
+;;   ; Make ESS use RStudio's indenting style
+;;   (add-hook 'ess-mode-hook (lambda() (ess-set-style 'RStudio)))
+;;   ; Make ESS use more horizontal screen
+;;   ; http://stackoverflow.com/questions/12520543/how-do-i-get-my-r-buffer-in-emacs-to-occupy-more-horizontal-space
+;;   (add-hook 'ess-R-post-run-hook 'ess-execute-screen-options)
+;;   (define-key inferior-ess-mode-map "\C-cw" 'ess-execute-screen-options)
+;;   ; Add path to Stata to Emacs' exec-path so that Stata can be found
+;;   (setq exec-path (append exec-path '("/usr/local/stata14"))))
+
+; Set up markdown in Emacs
+; Tutorial: http://jblevins.org/projects/markdown-mode/
+(use-package pandoc-mode
+  :ensure t
+  :config
+  (add-hook 'markdown-mode-hook 'pandoc-mode))
+
+(add-hook 'text-mode-hook (lambda() (flyspell-mode 1)))
+
+(use-package markdown-mode
+  :ensure t
+  :commands (markdown-mode gfm-mode)
+  :mode (("README\\.md\\'" . gfm-mode)
+         ("\\.md\\'" . markdown-mode)
+         ("\\.markdown\\'" . markdown-mode))
+  :init (setq markdown-command "pandoc"))
+
+; C-n add new lines at the end of buffer
+(setq next-line-add-newlines t)
+; open emacs full screen
+(add-to-list 'default-frame-alist '(fullscreen . maximized))
+; Make Emacs highlight paired parentheses
+(show-paren-mode 1)
+
+
+;; INTERFACE
+;; --------------------------------------
+;; Change window and frame
+(global-set-key (kbd "C-S-<iso-lefttab>") 'other-window)
+(global-set-key (kbd "C-|") 'other-frame)
+
+;; Delete trailing whitespace before saving
+(add-hook 'before-save-hook 'delete-trailing-whitespace)
+
+(use-package page-break-lines
+  :ensure t)
+
+(recentf-mode 1) ; keep a list of recently opened files
+;; set F7 to list recently opened file
+(global-set-key (kbd "<f7>") 'recentf-open-files)
+
+;; load new loading page
+(use-package dashboard
+  :ensure t
+  :config
+  (dashboard-setup-startup-hook))
+
+;; ;; ido-mode
+;; (ido-mode 1)
+
+;; No tabs
+(setq-default indent-tabs-mode nil)
+
+(defvar-local company-fci-mode-on-p nil)
+
+(defun company-turn-off-fci (&rest ignore)
+  (when (boundp 'fci-mode)
+    (setq company-fci-mode-on-p fci-mode)
+    (when fci-mode (fci-mode -1))))
+
+(defun company-maybe-turn-on-fci (&rest ignore)
+  (when company-fci-mode-on-p (fci-mode 1)))
+
+(add-hook 'company-completion-started-hook 'company-turn-off-fci)
+(add-hook 'company-completion-finished-hook 'company-maybe-turn-on-fci)
+(add-hook 'company-completion-cancelled-hook 'company-maybe-turn-on-fci)
+
+;; Directory tree
+(use-package neotree
+  :ensure t
+  :config
+  (global-set-key [f8] 'neotree-toggle)
+  (setq neo-theme (if (display-graphic-p) 'icons 'arrow)))
+
+;; icons for directory tree
+(use-package all-the-icons
+  :ensure t)
+;; Run the following the first time
+;; :config
+;; (all-the-icons-install-fonts))
+
+(use-package ivy
+  :ensure t
+  :config
+  (ivy-mode 1)
+  (setq ivy-use-virtual-buffers t)
+  (setq enable-recursive-minibuffers t)
+  (global-set-key (kbd "C-c C-r") 'ivy-resume)
+  (global-set-key (kbd "<f6>") 'ivy-resume))
+
+(use-package swiper
+  :ensure t
+  :config
+  (global-set-key "\C-s" 'swiper))
+
+(use-package counsel
+  :ensure t
+  :config
+  (global-set-key (kbd "C-c C-r") 'ivy-resume)
+  (global-set-key (kbd "<f6>") 'ivy-resume)
+  (global-set-key (kbd "M-x") 'counsel-M-x)
+  (global-set-key (kbd "C-x C-f") 'counsel-find-file)
+  (global-set-key (kbd "<f1> f") 'counsel-describe-function)
+  (global-set-key (kbd "<f1> v") 'counsel-describe-variable)
+  (global-set-key (kbd "<f1> l") 'counsel-find-library)
+  (global-set-key (kbd "<f2> i") 'counsel-info-lookup-symbol)
+  (global-set-key (kbd "<f2> u") 'counsel-unicode-char)
+  (global-set-key (kbd "C-c g") 'counsel-git)
+  (global-set-key (kbd "C-c j") 'counsel-git-grep)
+  (global-set-key (kbd "C-c k") 'counsel-ag)
+  (global-set-key (kbd "C-x l") 'counsel-locate)
+  (global-set-key (kbd "C-S-o") 'counsel-rhythmbox)
+  (define-key minibuffer-local-map (kbd "C-r") 'counsel-minibuffer-history))
+
+;;   ;; (global-set-key "\C-s" 'swiper)
+;;   (global-set-key (kbd "C-c C-r") 'ivy-resume)
+;;   (global-set-key (kbd "<f6>") 'ivy-resume)
+;;   (global-set-key (kbd "M-x") 'counsel-M-x)
+;;   ;; (global-set-key (kbd "C-x C-f") 'counsel-find-file)
+;;   ;; (global-set-key (kbd "<f1> f") 'counsel-describe-function)
+;;   ;; (global-set-key (kbd "<f1> v") 'counsel-describe-variable)
+;;   ;; (global-set-key (kbd "<f1> l") 'counsel-find-library)
+;;   ;; (global-set-key (kbd "<f2> i") 'counsel-info-lookup-symbol)
+;;   ;; (global-set-key (kbd "<f2> u") 'counsel-unicode-char)
+;;   ;; (global-set-key (kbd "C-c g") 'counsel-git)
+;;   ;; (global-set-key (kbd "C-c j") 'counsel-git-grep)
+;;   ;; (global-set-key (kbd "C-c k") 'counsel-ag)
+;;   ;; (global-set-key (kbd "C-x l") 'counsel-locate)
+;;   ;; (global-set-key (kbd "C-S-o") 'counsel-rhythmbox)
+;;   (define-key minibuffer-local-map (kbd "C-r") 'counsel-minibuffer-history))
 
 ;; EMACS AUTOMATIC CUSTOMIZATION
 ;; --------------------------------------
-(put 'downcase-region 'disabled nil)
-(put 'narrow-to-region 'disabled nil)
 (custom-set-variables
  ;; custom-set-variables was added by Custom.
  ;; If you edit it by hand, you could mess it up, so be careful.
  ;; Your init file should contain only one such instance.
  ;; If there is more than one, they won't work right.
- '(ansi-color-faces-vector
-   [default bold shadow italic underline bold bold-italic bold])
- '(ansi-color-names-vector
-   ["#212526" "#ff4b4b" "#b4fa70" "#fce94f" "#729fcf" "#e090d7" "#8cc4ff" "#eeeeec"])
+ '(TeX-source-correlate-method (quote synctex))
+ '(TeX-source-correlate-mode t)
+ '(TeX-source-correlate-start-server t)
  '(custom-safe-themes
    (quote
-    ("fbdc07294d1135a36ceb9df015494da2cebb2b790e42b402ca9c4c425f916452" "987b709680284a5858d5fe7e4e428463a20dfabe0a6f2a6146b3b8c7c529f08b" "3d5ef3d7ed58c9ad321f05360ad8a6b24585b9c49abcee67bdcbb0fe583a6950" "58c6711a3b568437bab07a30385d34aacf64156cc5137ea20e799984f4227265" "a24c5b3c12d147da6cef80938dca1223b7c7f70f2f382b26308eba014dc4833a" "b3775ba758e7d31f3bb849e7c9e48ff60929a792961a2d536edec8f68c671ca5" "9b59e147dbbde5e638ea1cde5ec0a358d5f269d27bd2b893a0947c4a867e14c1" "96998f6f11ef9f551b427b8853d947a7857ea5a578c75aa9c4e7c73fe04d10b4" "0c29db826418061b40564e3351194a3d4a125d182c6ee5178c237a7364f0ff12" "e0d42a58c84161a0744ceab595370cbe290949968ab62273aed6212df0ea94b4" "3cd28471e80be3bd2657ca3f03fbb2884ab669662271794360866ab60b6cb6e6" "72a81c54c97b9e5efcc3ea214382615649ebb539cb4f2fe3a46cd12af72c7607" "732b807b0543855541743429c9979ebfb363e27ec91e82f463c91e68c772f6e3" default)))
- '(fci-rule-color "#ECEFF1")
- '(hl-sexp-background-color "#efebe9")
- '(linum-format " %5i ")
+    ("4e21fb654406f11ab2a628c47c1cbe53bab645d32f2c807ee2295436f09103c6" "5715d3b4b071d33af95e9ded99a450aad674e308abb06442a094652a33507cd2" "a24c5b3c12d147da6cef80938dca1223b7c7f70f2f382b26308eba014dc4833a" default)))
+ '(inferior-STA-program-name "stata-se")
  '(package-selected-packages
    (quote
-    (auto-complete typescript-mode lua-mode ## sql-indent yaml-mode workgroups2 wgrep web-mode sublime-themes pomodoro multiple-cursors material-theme jedi-direx indent-guide iedit helm go-mode git flycheck fill-column-indicator elpy ein default-text-scale column-marker better-defaults auctex)))
- '(vc-annotate-background nil)
- '(vc-annotate-color-map
-   (quote
-    ((20 . "#B71C1C")
-     (40 . "#FF5722")
-     (60 . "#FFA000")
-     (80 . "#558b2f")
-     (100 . "#00796b")
-     (120 . "#2196f3")
-     (140 . "#4527A0")
-     (160 . "#B71C1C")
-     (180 . "#FF5722")
-     (200 . "#FFA000")
-     (220 . "#558b2f")
-     (240 . "#00796b")
-     (260 . "#2196f3")
-     (280 . "#4527A0")
-     (300 . "#B71C1C")
-     (320 . "#FF5722")
-     (340 . "#FFA000")
-     (360 . "#558b2f"))))
- '(vc-annotate-very-old-color nil))
+    (counsel swiper neotree doom-themes dimmer spaceline spaceline-config pandoc-mode ess company-jedi helm-projectile projectile auctex exec-path-from-shell use-package wgrep sql-indent protobuf-mode pdf-tools org-journal multiple-cursors material-theme markdown-mode lua-mode iedit helm flycheck fill-column-indicator elpy default-text-scale better-defaults))))
 (custom-set-faces
  ;; custom-set-faces was added by Custom.
  ;; If you edit it by hand, you could mess it up, so be careful.
  ;; Your init file should contain only one such instance.
  ;; If there is more than one, they won't work right.
  )
-(put 'upcase-region 'disabled nil)
